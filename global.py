@@ -152,7 +152,7 @@ for i in range(0, len(rescaled_features)):
 
 for i in range(0, len(rescaled_features)):
     for j in range(0, len(rescaled_features)-1):
-        if(results[i] > results[j]):
+        if(results[i] < results[j]):
             temp1 = results[i]
             results[i] = results[j]
             results[j] = temp1
@@ -160,8 +160,8 @@ for i in range(0, len(rescaled_features)):
             index[i] = index[j]
             index[j] = temp2
 
-print("results........................", results)
-print("index.........................", index)
+# print("results........................", results)
+# print("index.........................", index)
 
 for x in range(0,5):
     image = cv2.imread(index_images[index[x]])
