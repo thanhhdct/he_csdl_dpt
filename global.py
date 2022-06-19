@@ -36,11 +36,11 @@ def fd_haralick(image):
 # feature-descriptor-3: Color Histogram
 def fd_histogram(image, mask=None):
     # convert the image to HSV color-space
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    # image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     # compute the color histogram
     hist  = cv2.calcHist([image], [0, 1, 2], None, [bins, bins, bins], [0, 256, 0, 256, 0, 256])
     # normalize the histogram
-    cv2.normalize(hist, hist)
+    # cv2.normalize(hist, hist)
     # return the histogram
     return hist.flatten()
 
@@ -115,15 +115,16 @@ test_path = "dataset/test"
 # loop through the test images
 for file in glob.glob(test_path + "/*.jpg"):
     # read the image
-    image = cv2.imread(file)
+    image = cv2.imread(file) 
+
+    # resize the image
+    image = cv2.resize(image, fixed_size)
+
     cv2.imshow("query image", image)
     cv2.waitKey(0) 
   
     #closing all open windows 
-    cv2.destroyAllWindows() 
-
-    # resize the image
-    image = cv2.resize(image, fixed_size)
+    cv2.destroyAllWindows()
 
     ####################################
     # Global Feature extraction
@@ -140,10 +141,11 @@ for file in glob.glob(test_path + "/*.jpg"):
     # normalize the feature vector in the range (0-1)
     global_feature2 = (global_feature1 - np.min(global_feature1))/np.ptp(global_feature1)
 
-# calculate euclidean distance
+# calculate Chi-square distance: measures similarity between 2 feature matrices
 results = []
 for x in range(0, len(rescaled_features)):
-    d = distance.euclidean(global_feature2, rescaled_features[x])
+    d = 0.5 * np.sum([((a - b) ** 2) / (a + b + 1e-10)
+            for (a, b) in zip(rescaled_features[x],global_feature2)])
     results.append(d)
 
 index = []
@@ -165,7 +167,7 @@ for i in range(0, len(rescaled_features)):
 
 for x in range(0,5):
     image = cv2.imread(index_images[index[x]])
-    # image = cv2.resize(image, fixed_size)
+    image = cv2.resize(image, fixed_size)
     cv2.imshow("Searching image",image)
     cv2.waitKey(0) 
   
