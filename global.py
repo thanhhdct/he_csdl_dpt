@@ -1,6 +1,3 @@
-#-----------------------------------
-# GLOBAL FEATURE EXTRACTION
-#-----------------------------------
 
 # organize imports
 from sklearn.preprocessing import LabelEncoder
@@ -9,25 +6,17 @@ import numpy as np
 import mahotas
 import cv2
 import os
-import h5py
+import glob
+from scipy.spatial import distance
 
 # fixed-sizes for image
 fixed_size = tuple((500, 500))
 
 # path to training data
-train_path = "dataset/train"
-
-# no.of.trees for Random Forests
-num_trees = 100
+train_path = "dataset/Image"
 
 # bins for histogram
 bins = 8
-
-# train_test_split size
-test_size = 0.10
-
-# seed for reproducing same results
-seed = 9
 
 # feature-descriptor-1: Hu Moments
 def fd_hu_moments(image):
@@ -58,10 +47,6 @@ def fd_histogram(image, mask=None):
 # get the training labels
 train_labels = os.listdir(train_path)
 
-# sort the training labels
-train_labels.sort()
-print(train_labels)
-
 # empty lists to hold feature vectors and labels
 global_features = []
 labels = []
@@ -71,6 +56,8 @@ k = 0
 
 # num of images per class
 images_per_class = 20
+
+index_images = []
 
 # loop over the training data sub-folders
 for training_name in train_labels:
@@ -85,11 +72,10 @@ for training_name in train_labels:
     for x in range(1,images_per_class+1):
         # get the image file name
         file = dir + "/" + str(x) + ".jpg"
-        # file = dir + "\" + str(x) + ".jpg"
+        index_images.append(file)
 
         # read the image and resize it to a fixed-size
         image = cv2.imread(file)
-        print("ten file: ", file)
         image = cv2.resize(image, fixed_size)
 
         ####################################
@@ -115,141 +101,13 @@ for training_name in train_labels:
 
 print ("[STATUS] completed Global Feature Extraction...")
 
-# get the overall feature vector size
-print ("[STATUS] feature vector size {}".format(np.array(global_features).shape))
-
-# get the overall training label size
-print ("[STATUS] training Labels {}".format(np.array(labels).shape))
-
-# encode the target labels
-targetNames = np.unique(labels)
-le = LabelEncoder()
-target = le.fit_transform(labels)
-print ("[STATUS] training labels encoded...")
-
 # normalize the feature vector in the range (0-1)
 scaler = MinMaxScaler(feature_range=(0, 1))
 rescaled_features = scaler.fit_transform(global_features)
-print ("[STATUS] feature vector normalized...")
 
-print ("[STATUS] target labels: {}".format(target))
-print ("[STATUS] target labels shape: {}".format(target.shape))
-
-# save the feature vector using HDF5
-h5f_data = h5py.File('output/data.h5', 'w')
-h5f_data.create_dataset('dataset_1', data=np.array(rescaled_features))
-
-h5f_label = h5py.File('output/labels.h5', 'w')
-h5f_label.create_dataset('dataset_1', data=np.array(target))
-
-h5f_data.close()
-h5f_label.close()
-
-print ("[STATUS] end of training..")
-
-#-----------------------------------
-# TRAINING OUR MODEL
-#-----------------------------------
-
-# import the necessary packages
-import h5py
-import numpy as np
-import os
-import glob
-import cv2
-from matplotlib import pyplot
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.model_selection import KFold, StratifiedKFold
-from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
-from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.naive_bayes import GaussianNB
-from sklearn.svm import SVC
-# from sklearn.externals 
-import joblib
-
-# create all the machine learning models
-models = []
-models.append(('LR', LogisticRegression(random_state=9)))
-models.append(('LDA', LinearDiscriminantAnalysis()))
-models.append(('KNN', KNeighborsClassifier()))
-models.append(('CART', DecisionTreeClassifier(random_state=9)))
-models.append(('RF', RandomForestClassifier(n_estimators=num_trees, random_state=9)))
-models.append(('NB', GaussianNB()))
-models.append(('SVM', SVC(random_state=9)))
-
-# variables to hold the results and names
-results = []
-names = []
-scoring = "accuracy"
-
-# import the feature vector and trained labels
-h5f_data = h5py.File('output/data.h5', 'r')
-h5f_label = h5py.File('output/labels.h5', 'r')
-
-global_features_string = h5f_data['dataset_1']
-global_labels_string = h5f_label['dataset_1']
-
-global_features = np.array(global_features_string)
-global_labels = np.array(global_labels_string)
-
-h5f_data.close()
-h5f_label.close()
-
-# verify the shape of the feature vector and labels
-print ("[STATUS] features shape: {}".format(global_features.shape))
-print ("[STATUS] labels shape: {}".format(global_labels.shape))
-
-print ("[STATUS] training started...")
-
-# split the training and testing data
-(trainDataGlobal, testDataGlobal, trainLabelsGlobal, testLabelsGlobal) = train_test_split(np.array(global_features),
-                                                                                          np.array(global_labels),
-                                                                                          test_size=test_size,
-                                                                                          random_state=seed)
-
-print ("[STATUS] splitted train and test data...")
-print ("Train data  : {}".format(trainDataGlobal.shape))
-print ("Test data   : {}".format(testDataGlobal.shape))
-print ("Train labels: {}".format(trainLabelsGlobal.shape))
-print ("Test labels : {}".format(testLabelsGlobal.shape))
-
-# filter all the warnings
-import warnings
-warnings.filterwarnings('ignore')
-
-# 10-fold cross validation
-for name, model in models:
-    kfold = KFold(n_splits=10, random_state=None)
-    cv_results = cross_val_score(model, trainDataGlobal, trainLabelsGlobal, cv=kfold, scoring=scoring)
-    results.append(cv_results)
-    names.append(name)
-    msg = "%s: %f (%f)" % (name, cv_results.mean(), cv_results.std())
-    print(msg)
-
-# boxplot algorithm comparison
-fig = pyplot.figure()
-fig.suptitle('Machine Learning algorithm comparison')
-ax = fig.add_subplot(111)
-pyplot.boxplot(results)
-ax.set_xticklabels(names)
-pyplot.show()
-
-#-----------------------------------
-# TESTING OUR MODEL
-#-----------------------------------
-
-# to visualize results
-import matplotlib.pyplot as plt
-
-# create the model - Random Forests
-clf  = RandomForestClassifier(n_estimators=100, random_state=9)
-
-# fit the training data to the model
-clf.fit(trainDataGlobal, trainLabelsGlobal)
+###############################################################
+# extract features of query image
+###########################################################
 
 # path to test data
 test_path = "dataset/test"
@@ -258,6 +116,11 @@ test_path = "dataset/test"
 for file in glob.glob(test_path + "/*.jpg"):
     # read the image
     image = cv2.imread(file)
+    cv2.imshow("query image", image)
+    cv2.waitKey(0) 
+  
+    #closing all open windows 
+    cv2.destroyAllWindows() 
 
     # resize the image
     image = cv2.resize(image, fixed_size)
@@ -266,20 +129,45 @@ for file in glob.glob(test_path + "/*.jpg"):
     # Global Feature extraction
     ####################################
     fv_hu_moments = fd_hu_moments(image)
-    fv_haralick   = fd_haralick(image)
-    fv_histogram  = fd_histogram(image)
+    fv_haralick  = fd_haralick(image)
+    fv_histogram = fd_histogram(image)
 
     ###################################
-    # Concatenate global features
+    # Concatenate global feature
     ###################################
-    global_feature = np.hstack([fv_histogram, fv_haralick, fv_hu_moments])
+    global_feature1 = np.hstack([fv_histogram, fv_haralick, fv_hu_moments])
 
-    # predict label of test image
-    prediction = clf.predict(global_feature.reshape(1,-1))[0]
+    # normalize the feature vector in the range (0-1)
+    global_feature2 = (global_feature1 - np.min(global_feature1))/np.ptp(global_feature1)
 
-    # show predicted label on image
-    cv2.putText(image, train_labels[prediction], (20,30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0,255,255), 3)
+# calculate euclidean distance
+results = []
+for x in range(0, len(rescaled_features)):
+    d = distance.euclidean(global_feature2, rescaled_features[x])
+    results.append(d)
 
-    # display the output image
-    plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-    plt.show()
+index = []
+for i in range(0, len(rescaled_features)):
+    index.append(i)
+
+for i in range(0, len(rescaled_features)):
+    for j in range(0, len(rescaled_features)-1):
+        if(results[i] > results[j]):
+            temp1 = results[i]
+            results[i] = results[j]
+            results[j] = temp1
+            temp2 = index[i]
+            index[i] = index[j]
+            index[j] = temp2
+
+print("results........................", results)
+print("index.........................", index)
+
+for x in range(0,5):
+    image = cv2.imread(index_images[index[x]])
+    # image = cv2.resize(image, fixed_size)
+    cv2.imshow("Searching image",image)
+    cv2.waitKey(0) 
+  
+    #closing all open windows 
+    cv2.destroyAllWindows() 
