@@ -141,12 +141,19 @@ for file in glob.glob(test_path + "/*.jpg"):
     # normalize the feature vector in the range (0-1)
     global_feature2 = (global_feature1 - np.min(global_feature1))/np.ptp(global_feature1)
 
-# calculate Chi-square distance: measures similarity between 2 feature matrices
+# calculate euclid distance: measures similarity between 2 feature matrices
 results = []
 for x in range(0, len(rescaled_features)):
-    d = 0.5 * np.sum([((a - b) ** 2) / (a + b + 1e-10)
-            for (a, b) in zip(rescaled_features[x],global_feature2)])
+    d = distance.euclidean(global_feature2, rescaled_features[x])
     results.append(d)
+
+results1 = np.zeros(120, 2)
+for x in range(0, len(rescaled_features)):
+    d = distance.euclidean(global_feature2, rescaled_features[x])
+    results1[x][0] = d
+    results1[x][1] = x
+
+results2 = sorted(results1, key = 0)
 
 index = []
 for i in range(0, len(rescaled_features)):
@@ -162,11 +169,21 @@ for i in range(0, len(rescaled_features)):
             index[i] = index[j]
             index[j] = temp2
 
-# print("results........................", results)
-# print("index.........................", index)
+print("results........................", results)
+print("index.........................", index)
+print("result2...........................", results2)
+
+# for x in range(0,5):
+#     image = cv2.imread(index_images[index[x]])
+#     image = cv2.resize(image, fixed_size)
+#     cv2.imshow("Searching image",image)
+#     cv2.waitKey(0) 
+  
+#     #closing all open windows 
+#     cv2.destroyAllWindows() 
 
 for x in range(0,5):
-    image = cv2.imread(index_images[index[x]])
+    image = cv2.imread(index_images[results2[x][1]])
     image = cv2.resize(image, fixed_size)
     cv2.imshow("Searching image",image)
     cv2.waitKey(0) 
